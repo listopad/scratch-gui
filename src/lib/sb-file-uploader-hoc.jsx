@@ -71,18 +71,16 @@ const SBFileUploaderHOC = function (WrappedComponent) {
             // redo step 7, in case it got skipped last time and its objects are
             // still in memory
             this.removeFileObjects();
-            // create fileReader
-            this.fileReader = new FileReader();
-            this.fileReader.onload = this.onload;
-            // create <input> element and add it to DOM
-            this.inputElement = document.createElement('input');
-            this.inputElement.accept = '.sb,.sb2,.sb3';
-            this.inputElement.style = 'display: none;';
-            this.inputElement.type = 'file';
-            this.inputElement.onchange = this.handleChange; // connects to step 3
-            document.body.appendChild(this.inputElement);
-            // simulate a click to open file chooser dialog
-            this.inputElement.click();
+            // step 2: prompt for URL instead of file input
+            // eslint-disable-next-line no-alert
+            const projectUrl = prompt('Enter the URL of the project file:', 'https://storage.yandexcloud.net/scratch-storage/Western.sb3');
+            if (projectUrl) {
+                this.fileToUpload = projectUrl;
+                this.props.requestProjectUpload(this.props.loadingState);
+            } else {
+                this.removeFileObjects();
+            }
+            this.props.closeFileMenu();
         }
         // step 3: user has picked a file using the file chooser dialog.
         // We don't actually load the file here, we only decide whether to do so.
@@ -123,10 +121,21 @@ const SBFileUploaderHOC = function (WrappedComponent) {
         // step 5: called from componentDidUpdate when project state shows
         // that project data has finished "uploading" into the browser
         handleFinishedLoadingUpload () {
-            if (this.fileToUpload && this.fileReader) {
-                // begin to read data from the file. When finished,
-                // cues step 6 using the reader's onload callback
-                this.fileReader.readAsArrayBuffer(this.fileToUpload);
+            if (this.fileToUpload) {
+                // begin to fetch data from the URL. When finished,
+                // cues step 6 using the fetch's then callback
+                fetch(this.fileToUpload)
+                    .then(response => response.arrayBuffer())
+                    .then(buffer => {
+                        this.fileReader = {result: buffer};
+                        this.onload();
+                    })
+                    .catch(error => {
+                        log.warn(error);
+                        alert(this.props.intl.formatMessage(messages.loadError)); // eslint-disable-line no-alert
+                        this.props.cancelFileUpload(this.props.loadingState);
+                        this.removeFileObjects();
+                    });
             } else {
                 this.props.cancelFileUpload(this.props.loadingState);
                 // skip ahead to step 7
