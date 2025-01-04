@@ -26,6 +26,8 @@ const vmManagerHOC = function (WrappedComponent) {
             bindAll(this, [
                 'loadProject'
             ]);
+
+            window.vm = this.props.vm;
         }
         componentDidMount () {
             if (!this.props.vm.initialized) {
